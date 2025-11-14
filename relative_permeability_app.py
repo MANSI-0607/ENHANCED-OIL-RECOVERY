@@ -43,7 +43,7 @@ for figkey in ["fig1","fig2","fig3","fig4","fig5"]:
 # ========================================================================
 st.sidebar.header("Input Parameters")
 
-st.sidebar.info("💡 Units: Use consistent units (typically cP or mPa·s)")
+st.sidebar.info("💡 Units: Use consistent unitss")
 water_vis = st.sidebar.number_input("Water viscosity (μw) [cP]", min_value=1e-6, value=1.0, step=0.1, format="%.2f")
 oil_vis = st.sidebar.number_input("Oil viscosity (μo) [cP]", min_value=1e-6, value=2.0, step=0.1, format="%.2f")
 swi = st.sidebar.number_input("Irreducible water saturation (Swi)", min_value=0.0, max_value=1.0, value=0.2)
