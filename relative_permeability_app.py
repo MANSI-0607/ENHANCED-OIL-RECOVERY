@@ -43,8 +43,9 @@ for figkey in ["fig1","fig2","fig3","fig4","fig5"]:
 # ========================================================================
 st.sidebar.header("Input Parameters")
 
-water_vis = st.sidebar.number_input("Water viscosity (μw)", min_value=1e-6, value=1.0, step=0.1)
-oil_vis = st.sidebar.number_input("Oil viscosity (μo)", min_value=1e-6, value=2.0, step=0.1)
+st.sidebar.info("💡 Units: Use consistent units (typically cP or mPa·s)")
+water_vis = st.sidebar.number_input("Water viscosity (μw) [cP]", min_value=1e-6, value=1.0, step=0.1, format="%.2f")
+oil_vis = st.sidebar.number_input("Oil viscosity (μo) [cP]", min_value=1e-6, value=2.0, step=0.1, format="%.2f")
 swi = st.sidebar.number_input("Irreducible water saturation (Swi)", min_value=0.0, max_value=1.0, value=0.2)
 sor = st.sidebar.number_input("Residual oil saturation (Sor)", min_value=0.0, max_value=1.0, value=0.2)
 end_krw = st.sidebar.number_input("End-point krw", min_value=0.0, max_value=10.0, value=1.0)
@@ -154,16 +155,33 @@ def compute_relperm(model, water_vis, oil_vis, swi, sor, end_krw, end_kro, N):
     Fw = 1 / (1 + (Kro_safe * water_vis) / (Krw_safe * oil_vis))
     mobility = (Krw / water_vis) / (Kro_safe / oil_vis)
 
-    # Welge tangent method: find tangent from (Swi, 0) to Fw curve
+# Welge tangent method: find tangent from (Swi, 0) to Fw curve
     # Slope from initial point: (Fw - 0) / (Sw - Swi)
-    slopes = Fw / (Sw - swi + EPS)
+    # Exclude points too close to Swi to avoid numerical instability
+    min_distance = 0.01  # Minimum distance from Swi to consider
+    
+    denominators = Sw - swi
+    # Create mask for valid points (far enough from Swi)
+    valid_mask = denominators > min_distance
+    
+    # Initialize slopes array with -inf
+    slopes = np.full_like(Sw, -np.inf)
+    
+    # Calculate slopes only for valid points
+    slopes[valid_mask] = Fw[valid_mask] / denominators[valid_mask]
     
     # Find maximum slope (breakthrough point)
-    idx = np.nanargmax(slopes)
-    
-    Swf = float(Sw[idx])
-    Fwf = float(Fw[idx])
-    
+    # Only consider finite values
+    finite_mask = np.isfinite(slopes)
+    if np.any(finite_mask):
+        idx = np.argmax(slopes)
+        Swf = float(Sw[idx])
+        Fwf = float(Fw[idx])
+    else:
+        # Fallback if no valid breakthrough point found
+        idx = len(Sw) // 2
+        Swf = float(Sw[idx])
+        Fwf = float(Fw[idx])
     # Also compute derivative for plotting
     dFw = np.gradient(Fw, Sw)
 
@@ -281,7 +299,8 @@ if st.session_state.data is not None:
     st.markdown(f"""
 ### 🔵 Breakthrough Point  
 **Swf = `{Swf:.6f}`**  
-**Fwf = `{Fwf:.6f}`**
+**Fwf = `{Fwf:.6f}`**  
+**Mobility Ratio (M) = `{(end_krw/water_vis)/(end_kro/oil_vis):.4f}`**
     """)
 
     # --------------------------------------------------------------------
