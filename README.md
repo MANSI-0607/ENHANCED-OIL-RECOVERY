@@ -1,0 +1,1 @@
+Compute relative permeabilities (Krw, Kro), fractional flow (Fw), draw Krw–Kro crossplot and Mobility ratio curve, and export a printable PDF report containing inputs, breakthrough values, table and plots.
