@@ -108,9 +108,13 @@ def get_model_formulas(model):
     """
     
     breakthrough = r"""
-    **Breakthrough Point:**
+    **Breakthrough Point (Welge Tangent Method):**
     
-    $$S_{wf} = \text{argmax}\left(\frac{dF_w}{dS_w}\right)$$
+    The breakthrough saturation $S_{wf}$ is found by drawing a tangent from the initial point $(S_{wi}, 0)$ to the $F_w$ curve.
+    
+    $$\text{Slope} = \frac{F_w - 0}{S_w - S_{wi}} = \frac{F_w}{S_w - S_{wi}}$$
+    
+    $$S_{wf} = \text{argmax}\left(\frac{F_w}{S_w - S_{wi}}\right)$$
     
     $$F_{wf} = F_w(S_{wf})$$
     """
@@ -150,11 +154,18 @@ def compute_relperm(model, water_vis, oil_vis, swi, sor, end_krw, end_kro, N):
     Fw = 1 / (1 + (Kro_safe * water_vis) / (Krw_safe * oil_vis))
     mobility = (Krw / water_vis) / (Kro_safe / oil_vis)
 
-    dFw = np.gradient(Fw, Sw)
-    idx = np.nanargmax(dFw)
-
+    # Welge tangent method: find tangent from (Swi, 0) to Fw curve
+    # Slope from initial point: (Fw - 0) / (Sw - Swi)
+    slopes = Fw / (Sw - swi + EPS)
+    
+    # Find maximum slope (breakthrough point)
+    idx = np.nanargmax(slopes)
+    
     Swf = float(Sw[idx])
     Fwf = float(Fw[idx])
+    
+    # Also compute derivative for plotting
+    dFw = np.gradient(Fw, Sw)
 
     df = pd.DataFrame({
         "Sw": Sw,
@@ -197,12 +208,24 @@ if compute_pressed:
     ax1.grid(True)
     st.session_state.fig1 = fig1
 
-    # FIG 2 – Fw vs Sw
+    # FIG 2 – Fw vs Sw with tangent line
     fig2, ax2 = plt.subplots()
-    ax2.plot(data["Sw"], data["Fw"], linewidth=2)
-    ax2.scatter([Swf], [Fwf], color="red")
+    ax2.plot(data["Sw"], data["Fw"], linewidth=2, label='Fw curve')
+    ax2.scatter([Swf], [Fwf], color="red", s=100, zorder=5, label=f'Breakthrough (Swf={Swf:.4f})')
+    
+    # Draw tangent line from (Swi, 0) through breakthrough point
+    # Handle case where Swf might equal Swi
+    if abs(Swf - swi) > EPS:
+        tangent_slope = Fwf / (Swf - swi)
+        tangent_x = np.array([swi, Swf])
+        tangent_y = tangent_slope * (tangent_x - swi)
+        ax2.plot(tangent_x, tangent_y, 'r--', linewidth=1.5, label='Tangent from Swi', alpha=0.7)
+    
+    ax2.scatter([swi], [0], color='orange', s=80, marker='s', zorder=5, label=f'Initial point (Swi={swi})')
     ax2.set_xlabel("Sw")
     ax2.set_ylabel("Fw")
+    ax2.set_ylim(0, 1.0)  # Set y-axis limit to 1.0
+    ax2.legend()
     ax2.grid(True)
     st.session_state.fig2 = fig2
 
@@ -295,10 +318,32 @@ if st.session_state.data is not None:
         with st.expander("Formula for Mobility Ratio"):
             st.latex(r"M = \frac{\lambda_w}{\lambda_o} = \frac{k_{rw}/\mu_w}{k_{ro}/\mu_o}")
 
-    with st.expander("Show dFw/dSw"):
-        st.pyplot(st.session_state.fig5)
-        st.latex(r"\frac{dF_w}{dS_w}")
-        st.markdown("**Breakthrough occurs at:** " + r"$S_{wf} = \text{argmax}\left(\frac{dF_w}{dS_w}\right)$")
+    with st.expander("Show dFw/dSw and Tangent Slope"):
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            st.pyplot(st.session_state.fig5)
+            st.latex(r"\frac{dF_w}{dS_w}")
+            st.markdown("Standard derivative of fractional flow")
+        
+        with col_b:
+            # Plot tangent slopes
+            fig6, ax6 = plt.subplots()
+            slopes = data["Fw"] / (data["Sw"] - swi + EPS)
+            ax6.plot(data["Sw"], slopes, linewidth=2, color='purple')
+            
+            # Only plot breakthrough point if valid
+            if abs(Swf - swi) > EPS:
+                ax6.scatter([Swf], [Fwf / (Swf - swi)], color="red", s=100, zorder=5)
+            
+            ax6.set_xlabel("Sw")
+            ax6.set_ylabel("Fw/(Sw-Swi)")
+            ax6.set_title("Tangent Slope (Welge Method)")
+            ax6.grid(True)
+            st.pyplot(fig6)
+            st.markdown("**Breakthrough occurs at:** " + r"$S_{wf} = \text{argmax}\left(\frac{F_w}{S_w - S_{wi}}\right)$")
+        
+        plt.close(fig6)
 
     # ====================================================================
     # CSV DOWNLOAD 
