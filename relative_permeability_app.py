@@ -293,6 +293,10 @@ if compute_pressed:
     # Relative permeabilities
     ax6.plot(data["Sw"], data["Krw"], label="Krw", linewidth=1.5, color='blue')
     ax6.plot(data["Sw"], data["Kro"], label="Kro", linewidth=1.5, color='orange')
+    # Force same Y-limits for both axes so the zero lines align
+    ax6.set_ylim(0, 1)
+    ax6_twin.set_ylim(0, 1)
+
     ax6.set_xlabel("Sw", fontsize=7)
     ax6.set_ylabel("Relative Permeability", fontsize=6, color='black')
     ax6.tick_params(axis='both', labelsize=5, labelcolor='black')
